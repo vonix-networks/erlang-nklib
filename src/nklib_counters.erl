@@ -22,7 +22,7 @@
 %%
 %% This module implements a ETS-based process counters manager.
 %% Any process can register and update any number of counters, and they can be shared
-%% with other processes. When the process exists, all updates made from that process 
+%% with other processes. When the process exists, all updates made from that process
 %% are reverted.
 
 -module(nklib_counters).
@@ -30,7 +30,7 @@
 -behaviour(gen_server).
 
 -export([incr/1, incr/2, incr/3, value/1, del/1, del/2, async/1]).
--export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3, 
+-export([start_link/0, init/1, terminate/2, code_change/3, handle_call/3,
          handle_cast/2, handle_info/2]).
 -export([pending_msgs/0, stop/0]).
 
@@ -44,18 +44,18 @@
 
 
 %% @doc Equivalent to `incr(Name, 1, self())'.
--spec incr(term()) -> 
-    ok.
+-spec incr(term()) ->
+          ok.
 
-incr(Name) -> 
+incr(Name) ->
     incr(Name, 1, self()).
 
 
 %% @doc Equivalent to `incr(Name, Value, self())'.
--spec incr(term(), integer()) -> 
-    ok.
+-spec incr(term(), integer()) ->
+          ok.
 
-incr(Name, Value) when is_integer(Value) -> 
+incr(Name, Value) when is_integer(Value) ->
     incr(Name, Value, self()).
 
 
@@ -64,16 +64,16 @@ incr(Name, Value) when is_integer(Value) ->
 %% or it will be added to the previous value if it exists.
 %% `Value' must be a positive or negative integer.
 %% When the process having `Pid' exists, all updates sent from it will be reverted.
--spec incr(term(), integer(), pid()) -> 
-    ok.
+-spec incr(term(), integer(), pid()) ->
+          ok.
 
 incr(Name, Value, Pid) when is_integer(Value), is_pid(Pid) ->
     gen_server:call(?SERVER, {incr, Name, Value, Pid}).
 
 
 %% @doc Gets a counter's current value.
--spec value(term()) -> 
-    integer().
+-spec value(term()) ->
+          integer().
 
 value(Name) ->
     case lookup({name, Name}) of
@@ -83,26 +83,26 @@ value(Name) ->
 
 
 %% @doc Equivalent to `del(Name, self())'.
--spec del(term()) -> 
-    ok.
+-spec del(term()) ->
+          ok.
 
-del(Name) -> 
+del(Name) ->
     del(Name, self()).
 
 
 %% @doc Removes all `Name' counter updates sent from `Pid'.
--spec del(term(), pid()) -> 
-    ok.
+-spec del(term(), pid()) ->
+          ok.
 
-del(Name, Pid) when is_pid(Pid) -> 
+del(Name, Pid) when is_pid(Pid) ->
     gen_server:call(?SERVER, {del, Name, Pid}).
 
 
 %% @doc Performs an asynchronous multiple counter update as a batch.
 %% Default value for `Value' is `1', and the current process's `pid()' for `Pid'.
 -spec async([Op]) -> ok
-    when Op ::  Name | {Name, Value} | {Name, Value, Pid},
-         Name :: term(), Value :: integer(),  Pid :: pid().
+              when Op ::  Name | {Name, Value} | {Name, Value, Pid},
+                   Name :: term(), Value :: integer(),  Pid :: pid().
 
 async(Ops) when is_list(Ops) ->
     gen_server:cast(?SERVER, {multi, expand_multi(Ops)}).
@@ -122,20 +122,20 @@ pending_msgs() ->
 %% ===================================================================
 
 -record(state, {
-}).
+               }).
 
 %% @private
-start_link() -> 
+start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %% @private
 -spec stop() -> ok.
 stop() ->
     gen_server:call(?SERVER, stop).
-        
-%% @private 
+
+%% @private
 -spec init(term()) ->
-    {ok, #state{}}.
+          {ok, #state{}}.
 
 init([]) ->
     ets:new(?TABLE, [protected, named_table]),
@@ -144,7 +144,7 @@ init([]) ->
 
 %% @private
 -spec handle_call(term(), {pid(), term()}, #state{}) ->
-    {reply, ok, #state{}} | {noreply, #state{}} | {stop, normal, ok, #state{}}.
+          {reply, ok, #state{}} | {noreply, #state{}} | {stop, normal, ok, #state{}}.
 
 handle_call({incr, Name, Value, Pid}, _From, State) ->
     register(Name, Value, Pid),
@@ -164,7 +164,7 @@ handle_call(Msg, _From, State) ->
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
-    {noreply, #state{}}.
+          {noreply, #state{}}.
 
 handle_cast({multi, List}, State) ->
     lists:foreach(fun({Name, Value, Pid}) -> register(Name, Value, Pid) end, List),
@@ -177,7 +177,7 @@ handle_cast(Msg, State) ->
 
 %% @private
 -spec handle_info(term(), #state{}) ->
-    {noreply, #state{}}.
+          {noreply, #state{}}.
 
 handle_info({'DOWN', Ref, process, Pid, _Reason}, State) ->
     case lookup({pid, Pid}) of
@@ -185,17 +185,17 @@ handle_info({'DOWN', Ref, process, Pid, _Reason}, State) ->
         {Ref, Values} -> ok
     end,
     lists:foreach(fun({Name, _V}) -> unregister(Name, Pid) end, Values),
-    delete({pid, Pid}),         
+    delete({pid, Pid}),
     {noreply, State};
 
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     lager:warning("Module ~p received unexpected cast ~p", [?MODULE, Info]),
     {noreply, State}.
 
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
-    {ok, #state{}}.
+          {ok, #state{}}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -203,9 +203,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @private
 -spec terminate(term(), #state{}) ->
-    ok.
+          ok.
 
-terminate(_Reason, _State) ->  
+terminate(_Reason, _State) ->
     ok.
 
 
@@ -228,13 +228,13 @@ register(Name, Value, Pid) ->
             insert({pid, Pid}, {erlang:monitor(process, Pid), [{Name, Value}]});
         {Ref, PidValues} ->
             case lists:keytake(Name, 1, PidValues) of
-                false -> 
+                false ->
                     insert({pid, Pid}, {Ref, [{Name, Value}|PidValues]});
-                {value, {Name, OldPidCount}, PidValues1} -> 
+                {value, {Name, OldPidCount}, PidValues1} ->
                     case OldPidCount+Value of
-                        0 -> 
+                        0 ->
                             case PidValues1 of
-                                [] -> 
+                                [] ->
                                     erlang:demonitor(Ref),
                                     delete({pid, Pid});
                                 _ ->
@@ -250,7 +250,7 @@ register(Name, Value, Pid) ->
 %% @private
 unregister(Name, Pid) ->
     case lookup({pid, Pid}) of
-        [] -> 
+        [] ->
             PidCount = 0;
         {Ref, PidValues} ->
             case lists:keytake(Name, 1, PidValues) of
@@ -271,8 +271,8 @@ unregister(Name, Pid) ->
 
 
 %% @private
--spec lookup(term()) -> 
-    [] | term().
+-spec lookup(term()) ->
+          [] | term().
 
 lookup(Name) ->
     case ets:lookup(?TABLE, Name) of
@@ -282,18 +282,18 @@ lookup(Name) ->
 
 
 %% @private
--spec insert(term(), term()) -> 
-    true.
+-spec insert(term(), term()) ->
+          true.
 
-insert(Name, Val) -> 
+insert(Name, Val) ->
     true = ets:insert(?TABLE, {Name, Val}).
 
 
 %% @private
--spec delete(term()) -> 
-    true.
+-spec delete(term()) ->
+          true.
 
-delete(Name) -> 
+delete(Name) ->
     true = ets:delete(?TABLE, Name).
 
 
@@ -301,12 +301,12 @@ delete(Name) ->
 expand_multi(Ops) ->
     Self = self(),
     Fun = fun(Op) ->
-        case Op of
-            {N, V, P} when is_integer(V), is_pid(P) -> {N, V, P};
-            {N, V} when is_integer(V) -> {N, V, Self};
-            N -> {N, 1, Self}
-        end
-    end,
+                  case Op of
+                      {N, V, P} when is_integer(V), is_pid(P) -> {N, V, P};
+                      {N, V} when is_integer(V) -> {N, V, Self};
+                      N -> {N, 1, Self}
+                  end
+          end,
     lists:map(Fun, Ops).
 
 
@@ -320,26 +320,27 @@ expand_multi(Ops) ->
 -include_lib("eunit/include/eunit.hrl").
 
 basic_test_() ->
-    {setup, 
-        fun() -> 
-            ?debugFmt("Starting ~p", [?MODULE]),
-            case start_link() of
-                {error, {already_started, _}} ->
-                    ok;
-                {ok, _} ->
-                    do_stop
-            end
-        end,
-        fun(Stop) -> 
-            case Stop of
-                do_stop -> stop();
-                ok -> ok
-            end
-        end,
-        [
-            fun test_count/0,
-            fun test_multi/0
-        ]
+    {setup,
+     fun() ->
+             ?debugFmt("Starting ~p", [?MODULE]),
+             application:ensure_all_started(qdate),
+             case start_link() of
+                 {error, {already_started, _}} ->
+                     ok;
+                 {ok, _} ->
+                     do_stop
+             end
+     end,
+     fun(Stop) ->
+             case Stop of
+                 do_stop -> stop();
+                 ok -> ok
+             end
+     end,
+     [
+      fun test_count/0,
+      fun test_multi/0
+     ]
     }.
 
 test_count() ->
@@ -372,12 +373,12 @@ test_count() ->
     incr(d, -10),
     ?assert(0 == value(d)),
     del(d, Pid1),
-    % timer:sleep(150),
+                                                % timer:sleep(150),
     ?assert(-10 == value(d)),
     incr(d, 10),
     ?assert(0 == value(d)),
 
-    % Complete the coverage
+                                                % Complete the coverage
     spawn(fun() -> incr(e), Self ! Ref, timer:sleep(100) end),
     receive Ref -> ok after 5000 -> error(timeout) end,
     ?assert(1 == value(e)),
@@ -409,12 +410,3 @@ test_multi() ->
     ok.
 
 -endif.
-
-
-
-
-
-
-
-
-

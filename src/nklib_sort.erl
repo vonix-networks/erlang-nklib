@@ -33,7 +33,7 @@
 %% @doc Sortes a lists of elements with dependencies, so that no element is
 %% placed before any of its dependencies
 -spec top_sort([{term(), [term()]}]) ->
-    {ok, [term()]} | {error, {circular_dependencies, [term()]}}.
+          {ok, [term()]} | {error, {circular_dependencies, [term()]}}.
 
 top_sort(Library) ->
     Digraph = digraph:new(),
@@ -62,20 +62,19 @@ top_sort(Library) ->
 topsort_insert([], _Digraph) ->
     ok;
 
-topsort_insert([{Name, Deps}|Rest], Digraph) ->
+topsort_insert(Library, Digraph) ->
+    [insert_deps(Name, Deps, Digraph) || {Name, Deps} <- Library],
+    ok.
+
+insert_deps(Name, Deps, Digraph) ->
     digraph:add_vertex(Digraph, Name),
     lists:foreach(
-        fun(Dep) -> 
-            case Dep of
-                Name ->
-                    ok;
-                _ ->
-                    digraph:add_vertex(Digraph, Dep),
-                    digraph:add_edge(Digraph, Dep, Name)
-            end
-        end,
-        Deps),
-    topsort_insert(Rest, Digraph).
+      fun(N) when N =:= Name -> ok;
+         (Dep) ->
+              digraph:add_vertex(Digraph, Dep),
+              digraph:add_edge(Digraph, Dep, Name)
+      end,
+      Deps).
 
 
 %% @private
@@ -99,50 +98,50 @@ top_sort_get_circular([Vertice|Rest], Digraph) ->
 %% EUnit tests
 %% ===================================================================
 
-% -define(TEST, 1).
-% -compile([export_all]).
+                                                % -define(TEST, 1).
+                                                % -compile([export_all]).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
 
 ok_test() ->
-    {ok, 
-        [std,synopsys,ieee,dware,dw02,dw05,gtech,dw01,dw03,dw04,ramlib,
-         std_cell_lib,des_system_lib,dw06,dw07]} = 
+    {ok,
+     [std,synopsys,ieee,dware,dw02,dw05,gtech,dw01,dw03,dw04,ramlib,
+      std_cell_lib,des_system_lib,dw06,dw07]} =
         top_sort(lib1()).
 
 fail_test() ->
     {error, {circular_dependencies,[dw01,dw04]}} = top_sort(lib2()).
 
 
-lib1() -> 
-        [{des_system_lib,   [std, synopsys, std_cell_lib, des_system_lib, dw02, dw01, ramlib, ieee]},
-         {dw01,             [ieee, dw01, dware, gtech]},
-         {dw02,             [ieee, dw02, dware]},
-         {dw03,             [std, synopsys, dware, dw03, dw02, dw01, ieee, gtech]},
-         {dw04,             [dw04, ieee, dw01, dware, gtech]},
-         {dw05,             [dw05, ieee, dware]},
-         {dw06,             [dw06, ieee, dware]},
-         {dw07,             [ieee, dware]},
-         {dware,            [ieee, dware]},
-         {gtech,            [ieee, gtech]},
-         {ramlib,           [std, ieee]},
-         {std_cell_lib,     [ieee, std_cell_lib]},
-         {synopsys,         []}].
- 
+lib1() ->
+    [{des_system_lib,   [std, synopsys, std_cell_lib, des_system_lib, dw02, dw01, ramlib, ieee]},
+     {dw01,             [ieee, dw01, dware, gtech]},
+     {dw02,             [ieee, dw02, dware]},
+     {dw03,             [std, synopsys, dware, dw03, dw02, dw01, ieee, gtech]},
+     {dw04,             [dw04, ieee, dw01, dware, gtech]},
+     {dw05,             [dw05, ieee, dware]},
+     {dw06,             [dw06, ieee, dware]},
+     {dw07,             [ieee, dware]},
+     {dware,            [ieee, dware]},
+     {gtech,            [ieee, gtech]},
+     {ramlib,           [std, ieee]},
+     {std_cell_lib,     [ieee, std_cell_lib]},
+     {synopsys,         []}].
+
 lib2() ->
-        [{des_system_lib,   [std, synopsys, std_cell_lib, des_system_lib, dw02, dw01, ramlib, ieee]},
-         {dw01,             [ieee, dw01, dw04, dware, gtech]},
-         {dw02,             [ieee, dw02, dware]},
-         {dw03,             [std, synopsys, dware, dw03, dw02, dw01, ieee, gtech]},
-         {dw04,             [dw04, ieee, dw01, dware, gtech]},
-         {dw05,             [dw05, ieee, dware]},
-         {dw06,             [dw06, ieee, dware]},
-         {dw07,             [ieee, dware]},
-         {dware,            [ieee, dware]},
-         {gtech,            [ieee, gtech]},
-         {ramlib,           [std, ieee]},
-         {std_cell_lib,     [ieee, std_cell_lib]},
-         {synopsys,         []}].
- 
- -endif.
+    [{des_system_lib,   [std, synopsys, std_cell_lib, des_system_lib, dw02, dw01, ramlib, ieee]},
+     {dw01,             [ieee, dw01, dw04, dware, gtech]},
+     {dw02,             [ieee, dw02, dware]},
+     {dw03,             [std, synopsys, dware, dw03, dw02, dw01, ieee, gtech]},
+     {dw04,             [dw04, ieee, dw01, dware, gtech]},
+     {dw05,             [dw05, ieee, dware]},
+     {dw06,             [dw06, ieee, dware]},
+     {dw07,             [ieee, dware]},
+     {dware,            [ieee, dware]},
+     {gtech,            [ieee, gtech]},
+     {ramlib,           [std, ieee]},
+     {std_cell_lib,     [ieee, std_cell_lib]},
+     {synopsys,         []}].
+
+-endif.

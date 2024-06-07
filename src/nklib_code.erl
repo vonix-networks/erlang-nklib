@@ -31,6 +31,8 @@
 
 -include_lib("syntax_tools/include/merl.hrl").
 
+-compile([{parse_transform, lager_transform}]).
+
 %% ===================================================================
 %% Private
 %% ===================================================================
@@ -39,7 +41,7 @@
 %% @doc Parses an erlang expression intro a syntaxTree()
 %% i.e. expres
 -spec expression(string()) ->
-    {ok, erl_syntax:syntaxTree()} | error.
+          {ok, erl_syntax:syntaxTree()} | error.
 
 expression(Expr) ->
     case erl_scan:string(Expr) of
@@ -55,79 +57,79 @@ expression(Expr) ->
 
 %% @doc Generates a getter function (fun() -> Value.)
 -spec getter(atom(), term()) ->
-    erl_syntax:syntaxTree().
+          erl_syntax:syntaxTree().
 
 getter(Fun, Value) ->
     try
         erl_syntax:function(
-           erl_syntax:atom(Fun),
-           [erl_syntax:clause([], none, [erl_syntax:abstract(Value)])])
+          erl_syntax:atom(Fun),
+          [erl_syntax:clause([], none, [erl_syntax:abstract(Value)])])
     catch
         error:Error -> lager:warning("Could not make getter for ~p", [Value]),
-        error(Error)
+                       error(Error)
     end.
 
 
 
 %% @doc Generates a getter function (fun(X, Y, Z) -> Value; fun(_, _, _) -> Default
-% If Default=none, not catch-all clause will be added
+                                                % If Default=none, not catch-all clause will be added
 -spec getter_args(atom(), integer(), [{[term()], term()}], term()|none) ->
-    erl_syntax:syntaxTree().
+          erl_syntax:syntaxTree().
 
 getter_args(Fun, Arity, ArgsValues, Default) ->
     try
         erl_syntax:function(
-            erl_syntax:atom(Fun),
-            [
-                erl_syntax:clause(
-                    [erl_syntax:abstract(Arg) || Arg <- Args],
-                    none, [erl_syntax:abstract(Val)])
-                ||
-                {Args, Val} <- ArgsValues, length(Args)==Arity
-            ]
-            ++
-            case Default of
-                none ->
-                    [];
-                _ ->
-                    [
-                        erl_syntax:clause(
-                            [erl_syntax:variable('_') || _ <- lists:seq(1,Arity)],
-                            none, [erl_syntax:abstract(Default)])
-                    ]
-            end)
+          erl_syntax:atom(Fun),
+          [
+           erl_syntax:clause(
+             [erl_syntax:abstract(Arg) || Arg <- Args],
+             none, [erl_syntax:abstract(Val)])
+           ||
+              {Args, Val} <- ArgsValues, length(Args)==Arity
+          ]
+          ++
+              case Default of
+                  none ->
+                      [];
+                  _ ->
+                      [
+                       erl_syntax:clause(
+                         [erl_syntax:variable('_') || _ <- lists:seq(1,Arity)],
+                         none, [erl_syntax:abstract(Default)])
+                      ]
+              end)
     catch
         error:Error -> lager:warning("Could not make getter for ~p", [ArgsValues]),
-            error(Error)
+                       error(Error)
     end.
 
 
 %% @doc Generates a function expression (fun(A1,B1,..) -> Value)
 %% Vers represents the suffix to use in the variable names
 -spec fun_expr(atom(), integer(), integer(), term()) ->
-    erl_syntax:syntaxTree().
+          erl_syntax:syntaxTree().
 
 fun_expr(Fun, Arity, Vers, Value) ->
     erl_syntax:function(
-        erl_syntax:atom(Fun),
-        [erl_syntax:clause(var_list(Arity, Vers), none, Value)]).
+      erl_syntax:atom(Fun),
+      [erl_syntax:clause(var_list(Arity, Vers), none, Value)]).
 
 
 %% @doc Generates a call expression (mod:fun(A1,B1,..))
 %% Vers represents the suffix to use in the variable names.
 -spec call_expr(atom(), atom(), integer(), integer()) ->
-    erl_syntax:syntaxTree().
+          erl_syntax:syntaxTree().
 
 call_expr(Mod, Fun, Arity, Vers) ->
     erl_syntax:application(
-        case Mod of none -> none; _ -> erl_syntax:atom(Mod) end,
-        erl_syntax:atom(Fun),
-        var_list(Arity, Vers)).
+      case Mod of none -> none; _ -> erl_syntax:atom(Mod) end,
+      erl_syntax:atom(Fun),
+      var_list(Arity, Vers)).
 
 
 %% @doc Generates a call expression (fun(A0,B0...) -> mod:fun(A0,B0,..))
 -spec callback_expr(atom(), atom(), integer()) ->
-    erl_syntax:syntaxTree().
+          erl_syntax:syntaxTree().
 
 callback_expr(Mod, Fun, Arity) ->
     fun_expr(Fun, Arity, 0, [call_expr(Mod, Fun, Arity, 0)]).
@@ -136,125 +138,125 @@ callback_expr(Mod, Fun, Arity) ->
 %% @doc Generates a case expression
 %% case mod:fun(A2,B2...) of
 %%     continue -> [A1,B1..] = [A2,B2..], (NextCode);
-%%     {continue, (NextCode); 
+%%     {continue, (NextCode);
 %%     Other -> Other
 %% end
 %% Vers represents the suffix to use in the variable names.
--spec case_expr(atom(), atom(), integer(), integer(), 
-               [erl_syntax:syntaxTree()]) ->
-    erl_syntax:syntaxTree().
+-spec case_expr(atom(), atom(), integer(), integer(),
+                [erl_syntax:syntaxTree()]) ->
+          erl_syntax:syntaxTree().
 
 case_expr(Mod, Fun, Arity, Vers, NextCode) ->
     erl_syntax:case_expr(
-        call_expr(Mod, Fun, Arity, Vers),
-        [
-            erl_syntax:clause(
-                [erl_syntax:atom(continue)],
-                none,
-                case Arity of
-                    0 ->
-                        NextCode;
-                    _ ->
-                        [
-                            erl_syntax:match_expr(
-                                erl_syntax:list(var_list(Arity, Vers-1)),
-                                erl_syntax:list(var_list(Arity, Vers)))
-                        | NextCode]
-                end),
-            erl_syntax:clause(
-                [erl_syntax:tuple([
-                    erl_syntax:atom(continue), 
-                    erl_syntax:list(var_list(Arity, Vers-1))])],
-                none,
-                NextCode),
-            erl_syntax:clause(
-                [erl_syntax:variable('Other')],
-                none,
-                [erl_syntax:variable('Other')])
-        ]).
+      call_expr(Mod, Fun, Arity, Vers),
+      [
+       erl_syntax:clause(
+         [erl_syntax:atom(continue)],
+         none,
+         case Arity of
+             0 ->
+                 NextCode;
+             _ ->
+                 [
+                  erl_syntax:match_expr(
+                    erl_syntax:list(var_list(Arity, Vers-1)),
+                    erl_syntax:list(var_list(Arity, Vers)))
+                 | NextCode]
+         end),
+       erl_syntax:clause(
+         [erl_syntax:tuple([
+                            erl_syntax:atom(continue),
+                            erl_syntax:list(var_list(Arity, Vers-1))])],
+         none,
+         NextCode),
+       erl_syntax:clause(
+         [erl_syntax:variable('Other')],
+         none,
+         [erl_syntax:variable('Other')])
+      ]).
 
 
 %% @doc Generates a case expression
 %% case mod:fun(A2,B2) of
 %%     ok -> [A1,B1..] = [A2,B2..], (NextCode);
-%%     {ok, B1} -> [A1=A2], (NextCode); 
+%%     {ok, B1} -> [A1=A2], (NextCode);
 %%     Other -> Other
 %% end
 %% Vers represents the suffix to use in the variable names.
--spec case_expr_ok(atom(), atom(), integer(), integer(),  
-               [erl_syntax:syntaxTree()]) ->
-    erl_syntax:syntaxTree().
+-spec case_expr_ok(atom(), atom(), integer(), integer(),
+                   [erl_syntax:syntaxTree()]) ->
+          erl_syntax:syntaxTree().
 
 case_expr_ok(Mod, Fun, 2, Vers, NextCode) ->
     erl_syntax:case_expr(
-        call_expr(Mod, Fun, 2, Vers),
-        [
-            erl_syntax:clause(
-                [erl_syntax:atom(ok)],
-                none,
-                [
-                    erl_syntax:match_expr(
-                        erl_syntax:list(var_list(2, Vers-1)),
-                        erl_syntax:list(var_list(2, Vers)))
-                | NextCode]),
-            erl_syntax:clause(
-                [erl_syntax:tuple([
-                    erl_syntax:atom(ok), 
-                    erl_syntax:variable([$B|integer_to_list(Vers-1)])])],
-                none,
-                [
-                    erl_syntax:match_expr(
-                        erl_syntax:list(var_list(1, Vers-1)),
-                        erl_syntax:list(var_list(1, Vers)))
-                | NextCode]),
-            erl_syntax:clause(
-                [erl_syntax:variable('Other')],
-                none,
-                [erl_syntax:variable('Other')])
-        ]).
+      call_expr(Mod, Fun, 2, Vers),
+      [
+       erl_syntax:clause(
+         [erl_syntax:atom(ok)],
+         none,
+         [
+          erl_syntax:match_expr(
+            erl_syntax:list(var_list(2, Vers-1)),
+            erl_syntax:list(var_list(2, Vers)))
+         | NextCode]),
+       erl_syntax:clause(
+         [erl_syntax:tuple([
+                            erl_syntax:atom(ok),
+                            erl_syntax:variable([$B|integer_to_list(Vers-1)])])],
+         none,
+         [
+          erl_syntax:match_expr(
+            erl_syntax:list(var_list(1, Vers-1)),
+            erl_syntax:list(var_list(1, Vers)))
+         | NextCode]),
+       erl_syntax:clause(
+         [erl_syntax:variable('Other')],
+         none,
+         [erl_syntax:variable('Other')])
+      ]).
 
 
 %% @doc
 export_attr(List) ->
     erl_syntax:attribute(
-        erl_syntax:atom(export),
-        [erl_syntax:list(
-            [
-                erl_syntax:arity_qualifier(
-                    erl_syntax:atom(Name), erl_syntax:integer(Arity))
-                || {Name, Arity} <- List
-            ]
+      erl_syntax:atom(export),
+      [erl_syntax:list(
+         [
+          erl_syntax:arity_qualifier(
+            erl_syntax:atom(Name), erl_syntax:integer(Arity))
+          || {Name, Arity} <- List
+         ]
         )]).
 
 
 %% @doc Compiles a syntaxTree into a module
 -spec compile(atom(), [erl_syntax:syntaxTree()]) ->
-    ok | {error, term()}.
+          ok | {error, term()}.
 
 compile(Mod, Tree) ->
     Tree1 = [
-        erl_syntax:attribute(
-            erl_syntax:atom(module),
-            [erl_syntax:atom(Mod)]),
-        erl_syntax:attribute(
-            erl_syntax:atom(compile),
-            [erl_syntax:list([erl_syntax:atom(nowarn_export_all)])]),
-        erl_syntax:attribute(
-            erl_syntax:atom(compile),
-            [erl_syntax:list([erl_syntax:atom(export_all)])])
-        | Tree
-    ],
+             erl_syntax:attribute(
+               erl_syntax:atom(module),
+               [erl_syntax:atom(Mod)]),
+             erl_syntax:attribute(
+               erl_syntax:atom(compile),
+               [erl_syntax:list([erl_syntax:atom(nowarn_export_all)])]),
+             erl_syntax:attribute(
+               erl_syntax:atom(compile),
+               [erl_syntax:list([erl_syntax:atom(export_all)])])
+            | Tree
+            ],
     do_compile(Mod, Tree1, [report_errors, report_warnings, return_errors]).
 
 
 
 %% @doc Compiles a syntaxTree into a module
 -spec do_compile(atom(), [erl_syntax:syntaxTree()], list()) ->
-    ok | {error, term()}.
+          ok | {error, term()}.
 
 do_compile(Mod, Tree, Opts) ->
-%%    io:format("\nGenerated ~p:\n\n", [Mod]),
-%%    [io:format("~s\n\n", [erl_prettypr:format(S)]) || S<-Tree],
+    %%    io:format("\nGenerated ~p:\n\n", [Mod]),
+    %%    [io:format("~s\n\n", [erl_prettypr:format(S)]) || S<-Tree],
     Forms1 = [erl_syntax:revert(X) || X <- Tree],
     case compile:noenv_forms(Forms1, Opts) of
         {ok, Mod, Bin} ->
@@ -275,32 +277,32 @@ do_compile(Mod, Tree, Opts) ->
 
 %% @doc Writes a generated tree as a standard erlang file
 -spec write(atom(), [erl_syntax:syntaxTree()], string()) ->
-    ok | {error, term()}.
+          ok | {error, term()}.
 
 write(Mod, Tree, BasePath) ->
     Path = filename:join(BasePath, nklib_util:to_list(Mod)++".erl"),
     Content = list_to_binary(
-        [io_lib:format("~s\n\n", [erl_prettypr:format(S)]) || S <-Tree]),
+                [io_lib:format("~s\n\n", [erl_prettypr:format(S)]) || S <-Tree]),
     file:write_file(Path, Content).
 
 
 %% @doc Gets the list of exported functions of a module
 -spec get_funs(atom()) ->
-    [{atom(), integer()}] | error.
+          [{atom(), integer()}] | error.
 
 get_funs(Mod) ->
     case catch Mod:module_info() of
         List when is_list(List) ->
             lists:foldl(
-                fun({Fun, Arity}, Acc) ->
-                    case Fun of
-                        module_info -> Acc;
-                        behaviour_info -> Acc;
-                        _ -> [{Fun, Arity}|Acc]
-                    end
-                end,
-                [],
-                nklib_util:get_value(exports, List));
+              fun({Fun, Arity}, Acc) ->
+                      case Fun of
+                          module_info -> Acc;
+                          behaviour_info -> Acc;
+                          _ -> [{Fun, Arity}|Acc]
+                      end
+              end,
+              [],
+              nklib_util:get_value(exports, List));
         _ ->
             error
     end.
@@ -432,7 +434,3 @@ forms_print(Forms) ->
 var_list(Arity, Vers) ->
     VersS = nklib_util:to_list(Vers),
     [erl_syntax:variable([V|VersS]) || V <- lists:seq(65, 64+Arity)].
-
-
-
-

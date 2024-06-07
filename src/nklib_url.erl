@@ -42,11 +42,11 @@ url_encode([], Acc) ->
     list_to_binary(lists:reverse(Acc));
 
 url_encode([Char|String], Acc)
-    when Char >= $A, Char =< $Z;
-    Char >= $a, Char =< $z;
-    Char >= $0, Char =< $9;
-    Char =:= $-; Char =:= $_;
-    Char =:= $.; Char =:= $~ ->
+  when Char >= $A, Char =< $Z;
+       Char >= $a, Char =< $z;
+       Char >= $0, Char =< $9;
+       Char =:= $-; Char =:= $_;
+       Char =:= $.; Char =:= $~ ->
     url_encode(String, [Char|Acc]);
 
 url_encode([Char|String], Acc) ->
@@ -70,34 +70,34 @@ encode([], Acc) ->
     list_to_binary(lists:reverse(Acc));
 
 encode([Char|String], Acc)
-    when Char >= $A, Char =< $Z;
-    Char >= $a, Char =< $z;
-    Char >= $0, Char =< $9;
-    Char =:= $-; Char =:= $_;
-    Char =:= $.; Char =:= $~;
-    Char =:= $/ ->
+  when Char >= $A, Char =< $Z;
+       Char >= $a, Char =< $z;
+       Char >= $0, Char =< $9;
+       Char =:= $-; Char =:= $_;
+       Char =:= $.; Char =:= $~;
+       Char =:= $/ ->
     encode(String, [Char|Acc]);
 
 encode([Char|String], Acc)
-    when Char >=0, Char =< 255 ->
+  when Char >=0, Char =< 255 ->
     encode(String, [hex_char(Char rem 16), hex_char(Char div 16), $% | Acc]).
 
 
 %% @private
 utf8_encode_char(Char) when Char > 16#FFFF, Char =< 16#10FFFF ->
     encode_char(Char band 16#3F + 16#80)
-    ++ encode_char((16#3F band (Char bsr 6)) + 16#80)
+        ++ encode_char((16#3F band (Char bsr 6)) + 16#80)
         ++ encode_char((16#3F band (Char bsr 12)) + 16#80)
         ++ encode_char((Char bsr 18) + 16#F0);
 
 utf8_encode_char(Char) when Char > 16#7FF, Char =< 16#FFFF ->
     encode_char(Char band 16#3F + 16#80)
-    ++ encode_char((16#3F band (Char bsr 6)) + 16#80)
+        ++ encode_char((16#3F band (Char bsr 6)) + 16#80)
         ++ encode_char((Char bsr 12) + 16#E0);
 
 utf8_encode_char(Char) when Char > 16#7F, Char =< 16#7FF ->
     encode_char(Char band 16#3F + 16#80)
-    ++ encode_char((Char bsr 6) + 16#C0);
+        ++ encode_char((Char bsr 6) + 16#C0);
 
 utf8_encode_char(Char) when Char =< 16#7F ->
     encode_char(Char).
@@ -134,11 +134,11 @@ form_urldecode([], Acc) ->
 
 form_urldecode([Term|Rest], Acc) ->
     {Key, Val} = case binary:split(Term, <<$=>>) of
-        [Key0, Val0] ->
-            {http_uri:decode(Key0), http_uri:decode(Val0)};
-        [Key0] ->
-            {http_uri:decode(Key0), <<>>}
-    end,
+                     [Key0, Val0] ->
+                         {uri_string:unquote(Key0), uri_string:unquote(Val0)};
+                     [Key0] ->
+                         {uri_string:unquote(Key0), <<>>}
+                 end,
     form_urldecode(Rest, [{Key, Val}|Acc]).
 
 
@@ -156,7 +156,7 @@ form_urlencode([], Acc) ->
     lists:reverse(Acc);
 
 form_urlencode([{Key, [First|_]=Value}|Rest], Acc)
-        when is_integer(First), First >= $0, First =< $z ->
+  when is_integer(First), First >= $0, First =< $z ->
     form_urlencode([{Key, list_to_binary(Value)}|Rest], Acc);
 
 form_urlencode([{Key, Values}|Rest], Acc) when is_list(Values) ->

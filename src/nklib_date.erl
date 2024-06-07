@@ -49,7 +49,7 @@
 
 %% @doc Get current epoch time
 -spec epoch(epoch_unit()) ->
-    epoch().
+          epoch().
 
 epoch(secs) ->
     epoch(usecs) div 1000000;
@@ -65,7 +65,7 @@ epoch(usecs) ->
 %% @doc Get current epoch in binary for sorting, in hex format
 %% See epoch_to_hex/2
 -spec now_hex(epoch_unit()) ->
-    epoch_hex().
+          epoch_hex().
 
 now_hex(Unit) ->
     epoch_to_hex(epoch(Unit), Unit).
@@ -77,15 +77,15 @@ now_hex(Unit) ->
 %% For usecs: 14 byes
 %% It will never wrap, see epoch_to_hex_test/0
 -spec epoch_to_hex(epoch(), epoch_unit()) ->
-    epoch_hex().
+          epoch_hex().
 
 epoch_to_hex(Epoch, Unit) ->
     Hex = nklib_util:hex(binary:encode_unsigned(Epoch)),
     Size = case Unit of
-        secs -> 10;
-        msecs -> 12;
-        usecs -> 14
-    end,
+               secs -> 10;
+               msecs -> 12;
+               usecs -> 14
+           end,
     case byte_size(Hex) of
         Size ->
             Hex;
@@ -98,7 +98,7 @@ epoch_to_hex(Epoch, Unit) ->
 %% @doc Get current epoch in binary for sorting, in bin36 format
 %% See epoch_to_hex/2
 -spec now_bin(epoch_unit()) ->
-    epoch_bin36().
+          epoch_bin36().
 
 now_bin(Unit) ->
     epoch_to_bin(epoch(Unit), Unit).
@@ -108,20 +108,20 @@ now_bin(Unit) ->
 %% It will never wrap, see epoch_to_bin_test/0
 
 
--spec epoch_to_bin(epoch(), epoch_unit()) -> 
-    epoch_bin36().
+-spec epoch_to_bin(epoch(), epoch_unit()) ->
+          epoch_bin36().
 epoch_to_bin(Epoch, Unit) ->
     Bin = erlang:integer_to_binary(Epoch, 36),
     Size = case Unit of
-        secs -> 7;
-        msecs -> 9;
-        usecs -> 11
-    end,
+               secs -> 7;
+               msecs -> 9;
+               usecs -> 11
+           end,
     nklib_util:lpad(Bin, Size, $0).
 
 
 -spec bin_to_epoch(epoch_bin36()) ->
-    epoch().
+          epoch().
 bin_to_epoch(Bin) ->
     erlang:binary_to_integer(Bin, 36).
 
@@ -130,7 +130,7 @@ bin_to_epoch(Bin) ->
 %% The normal approach get_date + convert_to_3339 takes about 100K-140K/s (usecs-secs)
 %% This approach taking a second-resolution cache takes about 1M-2M/s (usecs-secs)
 -spec now_3339(epoch_unit()) ->
-    rfc3339().
+          rfc3339().
 
 now_3339(Time) -> now_3339(Time, 0).
 
@@ -179,7 +179,7 @@ now_3339(usecs, Diff) ->
 
 %% @doc Converts an incoming epoch or rfc3339 to normalized rfc3339
 -spec to_3339(integer()|binary()|string()|datetime(), epoch_unit()) ->
-    {ok, rfc3339()} | {error, term()}.
+          {ok, rfc3339()} | {error, term()}.
 
 to_3339(Epoch, Unit) when is_integer(Epoch) ->
     rfc3339:format(Epoch, to_erlang_unit(Unit));
@@ -196,13 +196,13 @@ to_3339(Date, Unit) when is_binary(Date); is_list(Date) ->
 to_3339(Date, Unit) when is_tuple(Date) ->
     Epoch1 = calendar_to_secs(Date),
     Epoch2 = case Unit of
-        secs ->
-            Epoch1;
-        msecs ->
-            1000*Epoch1+1;
-        usecs ->
-            1000*1000*Epoch1+1
-    end,
+                 secs ->
+                     Epoch1;
+                 msecs ->
+                     1000*Epoch1+1;
+                 usecs ->
+                     1000*1000*Epoch1+1
+             end,
     true = is_integer(Epoch2),
     to_3339(Epoch2, Unit);
 
@@ -212,7 +212,7 @@ to_3339(_, _) ->
 
 %% @doc Converts an incoming epoch or rfc3339 to normalized epoch
 -spec to_epoch(integer()|binary()|list()|datetime(), epoch_unit()) ->
-    {ok, integer()} | {error, term()}.
+          {ok, integer()} | {error, term()}.
 
 to_epoch(Epoch, Unit) when is_integer(Epoch) ->
     case epoch_unit(Epoch) of
@@ -244,14 +244,14 @@ to_epoch(_, _) ->
 
 %% @doc Converts an incoming epoch or rfc3339 to normalized epoch
 -spec to_calendar(integer()|binary()|list()|datetime()) ->
-    {ok, integer()} | {error, term()}.
+          {ok, integer()} | {error, term()}.
 
 to_calendar(Epoch) when is_integer(Epoch) ->
     Secs = case epoch_unit(Epoch) of
-        secs -> Epoch;
-        msecs -> Epoch div 1000;
-        usecs -> Epoch div 1000000
-    end,
+               secs -> Epoch;
+               msecs -> Epoch div 1000;
+               usecs -> Epoch div 1000000
+           end,
     {ok, secs_to_calendar(Secs)};
 
 to_calendar(Date) when is_binary(Date); is_list(Date) ->
@@ -272,18 +272,18 @@ to_calendar(_) ->
 %% @doc Quick 3339 parser (only for Z timezone)
 %% Doesn't check on invalid dates
 -spec is_3339(binary()|string()) ->
-    {true, {calendar:datetime(), float(), epoch_unit()}} | false.
+          {true, {calendar:datetime(), float(), epoch_unit()}} | false.
 
 is_3339(Val) ->
     case to_bin(Val) of
         <<
-            Y1, Y2, Y3, Y4, $- , M1, M2, $-, D1, D2, $T,
-            H1, H2, $:, Mi1, Mi2, $:, S1, S2, Rest/binary
+          Y1, Y2, Y3, Y4, $- , M1, M2, $-, D1, D2, $T,
+          H1, H2, $:, Mi1, Mi2, $:, S1, S2, Rest/binary
         >> when
-            Y1>=$0, Y1=<$9, Y2>=$0, Y2=<$9, Y3>=$0, Y3=<$9, Y4>=$0, Y4=<$9,
-            M1>=$0, M1=<$9, M2>=$0, M2=<$9, D1>=$0, D1=<$9, D2>=$0, D2=<$9,
-            H1>=$0, H1=<$9, H2>=$0, H2=<$9, Mi1>=$0, Mi1=<$9, Mi2>=$0, Mi2=<$9,
-            S1>=$0, S1=<$9, S2>=$0, S2=<$9 ->
+              Y1>=$0, Y1=<$9, Y2>=$0, Y2=<$9, Y3>=$0, Y3=<$9, Y4>=$0, Y4=<$9,
+              M1>=$0, M1=<$9, M2>=$0, M2=<$9, D1>=$0, D1=<$9, D2>=$0, D2=<$9,
+              H1>=$0, H1=<$9, H2>=$0, H2=<$9, Mi1>=$0, Mi1=<$9, Mi2>=$0, Mi2=<$9,
+              S1>=$0, S1=<$9, S2>=$0, S2=<$9 ->
             Y = (Y1-$0)*1000 + (Y2-$0)*100 + (Y3-$0)*10 + (Y4-$0),
             M = (M1-$0)*10 + (M2-$0),
             D = (D1-$0)*10 + (D2-$0),
@@ -299,9 +299,9 @@ is_3339(Val) ->
                             error;
                         Dec2 ->
                             Unit = case byte_size(Dec) < 4 of
-                                true -> msecs;
-                                false -> usecs
-                            end,
+                                       true -> msecs;
+                                       false -> usecs
+                                   end,
                             {true, {{{Y, M, D}, {H, Mi, S}}, Dec2, Unit}}
                     end;
                 _ ->
@@ -361,14 +361,14 @@ to_time_secs(Val) ->
 
 %% @doc Converts a `timestamp()' to a gmt `datetime()'.
 -spec secs_to_calendar(epoch()) ->
-    datetime().
+          datetime().
 
 secs_to_calendar(Secs) ->
     calendar:now_to_universal_time({0, Secs, 0}).
 
 
 -spec calendar_to_secs(datetime()) ->
-    epoch().
+          epoch().
 
 calendar_to_secs(DateTime) ->
     calendar:datetime_to_gregorian_seconds(DateTime) - 62167219200.
@@ -462,7 +462,7 @@ gmt_to_local_3339(DateGmt, TZ) ->
 
 
 local_to_gmt_calendar(DateLocal, TZ) ->
-    %lager:error("NKLOG DL ~p", [DateLocal]),
+                                                %lager:error("NKLOG DL ~p", [DateLocal]),
     case to_calendar(DateLocal) of
         {ok, Cal} ->
             qdate_srv:set_timezone(TZ),
@@ -528,11 +528,11 @@ add_days(Date, Days) ->
 %% @private
 add_month({Y, M, D}) ->
     {Y2, M2} = case M+1 of
-        13 ->
-            {Y+1, 1};
-        _ ->
-            {Y, M+1}
-    end,
+                   13 ->
+                       {Y+1, 1};
+                   _ ->
+                       {Y, M+1}
+               end,
     add_month_fix({Y2, M2, D}).
 
 
@@ -540,9 +540,9 @@ add_month({Y, M, D}) ->
 add_month_fix({Y, M, D}) ->
     Last = calendar:last_day_of_the_month(Y, M),
     D2 = case D > Last of
-        true -> Last;
-        false -> D
-    end,
+             true -> Last;
+             false -> D
+         end,
     {Y, M, D2}.
 
 
@@ -595,7 +595,7 @@ dates_test() ->
     {ok, <<"1980-01-01T00:00:00.001000Z">>} = to_3339("1980-01-01T00:00:00.001Z", msecs),
     {ok, <<"1980-01-01T00:00:00.000001Z">>} = to_3339("1980-01-01T00:00:00.000001Z", usecs),
 
-    {true,{{{2015,6,30},{23,59,10}},0.0,secs}} = is_3339("2015-06-30T23:59:10Z"),
+    {true,{{{2015,6,30},{23,59,10}},+0.0,secs}} = is_3339("2015-06-30T23:59:10Z"),
     false = is_3339("2015-06-30T23:59:10"),
     {true,{{{2015,6,30},{23,59,10}},0.1,msecs}} = is_3339("2015-06-30T23:59:10.1Z"),
     {true,{{{2015,6,30},{23,59,10}},0.01,msecs}} = is_3339("2015-06-30T23:59:10.01Z"),
@@ -780,7 +780,7 @@ timezones_test() ->
 
 
 
-%-define(TEST, 1).
+                                                %-define(TEST, 1).
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
@@ -788,7 +788,3 @@ all_test() ->
     all_tests().
 
 -endif.
-
-
-
-

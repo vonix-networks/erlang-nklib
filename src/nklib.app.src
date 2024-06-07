@@ -1,24 +1,24 @@
 {application, nklib, [
-    {description, "NetComposer Standard Library"},
-    {vsn, "0.4.1"},
-    {modules, []},
-    {registered, []},
-    {mod, {nklib_app, []}},
-    {applications, [
-        kernel,
-        stdlib,
-        lager,
-        enotify,
-        jsone,
-        yamerl,
-        eper,
-        recon,
-        mimerl,
-        rfc3339,
-        parsexml,
-        qdate_localtime,
-        erlware_commons,
-        qdate
-    ]},
-    {env, []}
-]}.
+                      {description, "NetComposer Standard Library"},
+                      {vsn, "0.4.1"},
+                      {modules, []},
+                      {registered, []},
+                      {mod, {nklib_app, []}},
+                      {applications, [
+                                      enotify,
+                                      eper,
+                                      erlware_commons,
+                                      jsone,
+                                      kernel,
+                                      lager,
+                                      mimerl,
+                                      parsexml,
+                                      qdate,
+                                      qdate_localtime,
+                                      recon,
+                                      rfc3339,
+                                      stdlib,
+                                      yamerl
+                                     ]},
+                      {env, []}
+                     ]}.
