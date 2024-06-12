@@ -5,7 +5,6 @@
                       {registered, []},
                       {mod, {nklib_app, []}},
                       {applications, [
-                                      enotify,
                                       eper,
                                       erlware_commons,
                                       jsone,
