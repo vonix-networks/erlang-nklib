@@ -180,10 +180,10 @@ handle_cast(Msg, State) ->
           {noreply, #state{}}.
 
 handle_info({'DOWN', Ref, process, Pid, _Reason}, State) ->
-    case lookup({pid, Pid}) of
-        [] -> Values = [];
-        {Ref, Values} -> ok
-    end,
+    Values = case lookup({pid, Pid}) of
+                 [] ->  [];
+                 {Ref, Vs} -> Vs
+             end,
     lists:foreach(fun({Name, _V}) -> unregister(Name, Pid) end, Values),
     delete({pid, Pid}),
     {noreply, State};
@@ -249,20 +249,20 @@ register(Name, Value, Pid) ->
 
 %% @private
 unregister(Name, Pid) ->
-    case lookup({pid, Pid}) of
-        [] ->
-            PidCount = 0;
-        {Ref, PidValues} ->
-            case lists:keytake(Name, 1, PidValues) of
-                false ->
-                    PidCount = 0;
-                {value, {Name, PidCount}, []} ->
-                    erlang:demonitor(Ref),
-                    delete({pid, Pid});
-                {value, {Name, PidCount}, PidValues1} ->
-                    insert({pid, Pid}, {Ref, PidValues1})
-            end
-    end,
+    PidCount = case lookup({pid, Pid}) of
+                   [] -> 0;
+                   {Ref, PidValues} ->
+                       case lists:keytake(Name, 1, PidValues) of
+                           false -> 0;
+                           {value, {Name, PC}, []} ->
+                               erlang:demonitor(Ref),
+                               delete({pid, Pid}),
+                               PC;
+                           {value, {Name, PC}, PidValues1} ->
+                               insert({pid, Pid}, {Ref, PidValues1}),
+                               PC
+                       end
+               end,
     OldTotal = value(Name),
     case OldTotal - PidCount of
         0 -> delete({name, Name});

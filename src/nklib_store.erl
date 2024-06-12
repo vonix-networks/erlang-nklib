@@ -22,7 +22,7 @@
 %%
 %% This module implements an ETS-based database used for registrations
 %% and caches.
-%% It is capable of timed auto expiring of records, server-side update funs 
+%% It is capable of timed auto expiring of records, server-side update funs
 %% and calling an user fun on record expire.
 
 -module(nklib_store).
@@ -68,7 +68,7 @@ put(Key, Value) -> put(Key, Value, []).
 %% If `ttl' option is used (seconds), record will be deleted after this time.
 %% If `notify' options is used, function will be called on record's delete.
 -spec put(term(), term(), [Opt]) -> ok
-    when Opt :: {ttl, integer()} | {notify, function()}.
+              when Opt :: {ttl, integer()} | {notify, function()}.
 put(Key, Value, Opts) when is_list(Opts) ->
     gen_server:call(?MODULE, {put, Key, Value, Opts}).
 
@@ -86,19 +86,19 @@ put_dirty_new(Key, Value) ->
 
 
 %% @doc Equivalent to `update(Key, Fun, [])'.
--spec update(term(), function()) -> 
-    {ok, FunResult::term()} | {error, Error::term()}.
+-spec update(term(), function()) ->
+          {ok, FunResult::term()} | {error, Error::term()}.
 update(Key, Fun) ->
     update(Key, Fun, []).
 
 
-%% @doc Updates a record in database, applying `Fun' to the old record 
-%% to get the new value. 
-%% If no record is found, old value would be `[]'. 
+%% @doc Updates a record in database, applying `Fun' to the old record
+%% to get the new value.
+%% If no record is found, old value would be `[]'.
 %% If the new generated value is `[]' record will be deleted.
 %% See {@link put/3} for options.
--spec update(term(), function(), nklib:optslist()) -> 
-    {ok, FunResult::term()} | {error, Error::term()}.
+-spec update(term(), function(), nklib:optslist()) ->
+          {ok, FunResult::term()} | {error, Error::term()}.
 update(Key, Fun, Opts) when is_function(Fun, 1), is_list(Opts) ->
     gen_server:call(?MODULE, {update, Key, Fun, Opts}).
 
@@ -108,9 +108,9 @@ update(Key, Fun, Opts) when is_function(Fun, 1), is_list(Opts) ->
 del(Key) -> gen_server:call(?MODULE, {del, Key}).
 
 
-%% @private 
+%% @private
 -spec del_dirty(term()) -> ok.
-del_dirty(Key) -> 
+del_dirty(Key) ->
     true = ets:delete(nklib_store, Key),
     ok.
 
@@ -139,9 +139,9 @@ update_timer(Time) ->
 
 
 -record(state, {
-    time,
-    timer
-}).
+                time,
+                timer
+               }).
 
 
 %% @private
@@ -159,9 +159,9 @@ stop() ->
     gen_server:call(?MODULE, stop).
 
 
-%% @private 
+%% @private
 -spec init(term()) ->
-    {ok, #state{}}.
+          {ok, #state{}}.
 
 init([Time]) ->
     ets:new(nklib_store, [public, named_table]),
@@ -172,19 +172,21 @@ init([Time]) ->
 
 %% @private
 -spec handle_call(term(), {pid(), term()}, #state{}) ->
-    {reply, term(), #state{}} | {noreply, #state{}} | {stop, normal, ok, #state{}}.
+          {reply, term(), #state{}} | {noreply, #state{}} | {stop, normal, ok, #state{}}.
 
 handle_call({put, Key, Value, Opts}, _From, State) ->
     case ets:lookup(nklib_store, Key) of
         [{_, _OldValue, OldExpire, _Fun}] when OldExpire > 0 ->
             ets:delete(nklib_store_ord, {ttl, OldExpire, Key});
-        _ -> 
+        _ ->
             ok
     end,
-    case lists:keyfind(notify, 1, Opts) of
-        {notify, ExpFun} when is_function(ExpFun, 1) -> ok;
-        _ -> ExpFun = none
-    end,
+
+    ExpFun = case lists:keyfind(notify, 1, Opts) of
+                 {notify, EF} when is_function(EF, 1) -> EF;
+                 _ -> none
+             end,
+
     case lists:keyfind(ttl, 1, Opts) of
         {ttl, TTL} when is_integer(TTL), TTL > 0 ->
             Expire = nklib_util:timestamp() + TTL,
@@ -196,12 +198,12 @@ handle_call({put, Key, Value, Opts}, _From, State) ->
     {reply, ok, State};
 
 handle_call({update, Key, UpdateFun, Opts}, From, State) ->
-    case ets:lookup(nklib_store, Key) of
-        [] -> OldValue = [], OldExpire = 0;
-        [{_, OldValue, OldExpire, _Fun}] -> ok
-    end,
+    {OldValue, OldExpire} = case ets:lookup(nklib_store, Key) of
+                                [] -> {[], 0};
+                                [{_, OV, OE, _Fun}] -> {OV, OE}
+                            end,
     case catch UpdateFun(OldValue) of
-        {'EXIT', Error} -> 
+        {'EXIT', Error} ->
             {reply, {error, Error}, State};
         Value ->
             case OldExpire of
@@ -212,10 +214,11 @@ handle_call({update, Key, UpdateFun, Opts}, From, State) ->
                 [] ->
                     {reply, _, _ } = handle_call({del, Key}, From, State);
                 _ ->
-                    case lists:keyfind(notify, 1, Opts) of
-                        {notify, ExpFun} when is_function(ExpFun, 1) -> ok;
-                        _ -> ExpFun = none
-                    end,
+                    ExpFun = case lists:keyfind(notify, 1, Opts) of
+                                 {notify, EF} when is_function(EF, 1) -> EF;
+                                 _ -> none
+                             end,
+
                     case lists:keyfind(ttl, 1, Opts) of
                         {ttl, TTL} when is_integer(TTL), TTL > 0 ->
                             Expire = nklib_util:timestamp() + TTL,
@@ -253,46 +256,46 @@ handle_call(get_pending, _From, State) ->
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
-handle_call(Msg, _From, State) -> 
+handle_call(Msg, _From, State) ->
     lager:error("Module ~p received unexpected call ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
 -spec handle_cast(term(), #state{}) ->
-    {noreply, #state{}}.
+          {noreply, #state{}}.
 
 handle_cast({update_timer, Time}, #state{timer=Timer}=State) ->
     nklib_util:cancel_timer(Timer),
     handle_info({timeout, none, timer}, State#state{time=Time});
 
-handle_cast(Msg, State) -> 
+handle_cast(Msg, State) ->
     lager:error("Module ~p received unexpected cast ~p", [?MODULE, Msg]),
     {noreply, State}.
 
 
 %% @private
 -spec handle_info(term(), #state{}) ->
-    {noreply, #state{}}.
+          {noreply, #state{}}.
 
-handle_info({timeout, _, timer}, #state{time=Time}=State) -> 
+handle_info({timeout, _, timer}, #state{time=Time}=State) ->
     proc_lib:spawn(
-        fun() -> 
-            Now = nklib_util:timestamp(),
-            Last = ets:prev(nklib_store_ord, {ttl, Now, 0}),
-            delete_expired_iter(Last)
-        end),
+      fun() ->
+              Now = nklib_util:timestamp(),
+              Last = ets:prev(nklib_store_ord, {ttl, Now, 0}),
+              delete_expired_iter(Last)
+      end),
     Timer = erlang:start_timer(Time, self(), timer),
     {noreply, State#state{timer=Timer}};
 
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     lager:warning("Module ~p received unexpected info: ~p", [?MODULE, Info]),
     {noreply, State}.
 
 
 %% @private
 -spec code_change(term(), #state{}, term()) ->
-    {ok, #state{}}.
+          {ok, #state{}}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -300,9 +303,9 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% @private
 -spec terminate(term(), #state{}) ->
-    ok.
-    
-terminate(_Reason, _State) ->  
+          ok.
+
+terminate(_Reason, _State) ->
     ok.
 
 
@@ -336,26 +339,26 @@ pending_iter({ttl, Time, Key}=Current, Now, Acc) ->
 -compile({no_auto_import, [get/1, put/2]}).
 
 basic_test_() ->
-    {setup, 
-        fun() -> 
-            ?debugFmt("Starting ~p", [?MODULE]),
-            case start_link() of
-                {error, {already_started, _}} ->
-                    ok;
-                {ok, _} ->
-                    do_stop
-            end
-        end,
-        fun(Stop) -> 
-            case Stop of 
-                do_stop -> stop();
-                ok -> ok 
-            end
-        end,
-        [
-            {timeout, 60, fun normal_insert/0},
-            {timeout, 60, fun ttl_insert/0}
-        ]
+    {setup,
+     fun() ->
+             ?debugFmt("Starting ~p", [?MODULE]),
+             case start_link() of
+                 {error, {already_started, _}} ->
+                     ok;
+                 {ok, _} ->
+                     do_stop
+             end
+     end,
+     fun(Stop) ->
+             case Stop of
+                 do_stop -> stop();
+                 ok -> ok
+             end
+     end,
+     [
+      {timeout, 60, fun normal_insert/0},
+      {timeout, 60, fun ttl_insert/0}
+     ]
     }.
 
 normal_insert() ->
@@ -421,12 +424,3 @@ is_pending(Key) ->
 
 
 -endif.
-
-
-
-
-
-
-
-
-
