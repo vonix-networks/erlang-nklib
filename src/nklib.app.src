@@ -5,19 +5,8 @@
                       {registered, []},
                       {mod, {nklib_app, []}},
                       {applications, [
-                                      eper,
-                                      erlware_commons,
-                                      jsone,
                                       kernel,
-                                      lager,
-                                      mimerl,
-                                      parsexml,
-                                      qdate,
-                                      qdate_localtime,
-                                      recon,
-                                      rfc3339,
-                                      stdlib,
-                                      yamerl
+                                      stdlib
                                      ]},
                       {env, []}
                      ]}.
